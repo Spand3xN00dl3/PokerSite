@@ -14,29 +14,62 @@ const io = new Server(httpServer, {
 });
 
 // game = {
-//     gameID: {
-//         options: {
-//             game settings (buy in, special rules, etc.)
-//         }
-//         clients: [list of clientIDs]
-//         active: boolean if game has been started
+//     gameID: (unique ID)
+//     options: {
+//         game settings (buy in, special rules, etc.)
 //     }
+//     players: {playerID: active}
+//     active: boolean if game has been started
 // }
-const games = {};
-const waitingRooms = {};
-const clients = {} // clientID: socket connection
+
+
+const gameRooms = {};
+// const waitingRooms = {};
+const players = {} // clientID: socket connection
 
 io.on("connection", (socket) => {
     socket.on("send message", (msg) => {
         console.log("message: " + msg);
+    })
+    socket.on("create game", (callback) => {
+        const gameID = createID();
+        gameRooms[gameID] = {
+            gameID : gameID,
+            players: {},
+            active: false
+        }
+        gameRooms[gameID].players[socket.id] = false;
+        socket.join(gameID);
+        callback(gameID);
+        console.log("game room created id: " + gameID + " by client: " + socket.id);
+    })
+    socket.on("join game", (gameID, callback) => {
+        console.log("client attempting to join game: " + gameID);
+
+        if(gameID in gameRooms) {
+            gameRooms[gameID].players[socket.id] = false;
+            socket.join(gameID);
+            console.log("joined successfully");
+            callback("success");
+        } else {
+            console.log("login failed"); 
+            callback("failed");
+        }
+    })
+    socket.on("start room", (gameID) => {
+        console.log("start game msg recieved, game: " + gameID);
+        gameRooms[gameID].active = true;
+        Object.keys(gameRooms[gameID].players).forEach((playerID) => {
+            gameRooms[gameID].players[playerID] = true;
+            console.log("player: " + playerID + " set active");
+        })
+        socket.to(gameID).emit("game started");
     });
-    socket.on("create id", () => {
-        console.log("new id: " + createID());
+    socket.on("endTurn", (gameID, bet) => {
+        // if lastBet - bet is negative, and bet is 0e
     })
     console.log('user connected id: ' + socket.id);
 });
-
-
 
 // io.on("create game room", (options, clientID) => {
 //     // create new socketio room which will contain all clients in the game
